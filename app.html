@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webtalk - Whisper STT + Pocket TTS</title>
+    <link rel="icon" type="image/png" href="/logo.png">
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js')
+          .then(reg => console.log('[SW] Registered'))
+          .catch(err => console.log('[SW] Registration failed:', err));
+      }
+    </script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0f;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+        .header {
+            background: #15151f;
+            border-bottom: 1px solid #252535;
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 20px;
+            font-weight: 600;
+            color: #00d4aa;
+        }
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+        }
+        .subtitle {
+            color: #666;
+            font-size: 12px;
+            font-weight: normal;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+            height: calc(100vh - 65px);
+        }
+        .panel {
+            padding: 20px;
+            overflow-y: auto;
+        }
+        .panel-left {
+            border-right: 1px solid #252535;
+        }
+        .panel-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #252535;
+        }
+        .panel-header h2 {
+            font-size: 18px;
+            color: #00d4aa;
+        }
+        .panel-header .icon {
+            width: 24px;
+            height: 24px;
+        }
+        .section {
+            background: #15151f;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+            border: 1px solid #252535;
+        }
+        .section-title {
+            font-size: 13px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+        }
+        button {
+            background: #00d4aa;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 20px;
+            color: #0a0a0f;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+        button:hover:not(:disabled) {
+            background: #00e6b8;
+            transform: translateY(-1px);
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        button.secondary {
+            background: #252535;
+            color: #e0e0e0;
+        }
+        button.secondary:hover:not(:disabled) {
+            background: #303045;
+        }
+        button.danger {
+            background: #ff6b6b;
+            color: white;
+        }
+        textarea, select {
+            width: 100%;
+            background: #0f0f15;
+            border: 1px solid #303040;
+            border-radius: 8px;
+            padding: 12px;
+            color: #e0e0e0;
+            font-size: 14px;
+            font-family: inherit;
+        }
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        textarea:focus, select:focus {
+            outline: none;
+            border-color: #00d4aa;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 12px;
+        }
+        .status {
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            background: #1a1a25;
+            color: #888;
+            margin-top: 10px;
+        }
+        .status.loading { background: #1a2a35; color: #00d4aa; }
+        .status.generating { background: #1a2535; color: #4a9eff; }
+        .status.ready { background: #1a2f25; color: #00d4aa; }
+        .status.recording { background: #351a1a; color: #ff6b6b; }
+        .status.error { background: #351a1a; color: #ff6b6b; }
+        
+        .output-box {
+            background: #0f0f15;
+            border: 1px solid #303040;
+            border-radius: 8px;
+            padding: 12px;
+            min-height: 80px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .output-box:empty::before {
+            content: 'Transcribed text will appear here...';
+            color: #555;
+            font-style: italic;
+        }
+        .output-box.has-content:empty::before {
+            content: none;
+        }
+        
+        .transfer-btn {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            background: #252535;
+            border: 2px solid #00d4aa;
+            border-radius: 50%;
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 10;
+            transition: all 0.2s;
+        }
+        .transfer-btn:hover {
+            background: #00d4aa;
+        }
+        .transfer-btn svg {
+            width: 20px;
+            height: 20px;
+            fill: #00d4aa;
+        }
+        .transfer-btn:hover svg {
+            fill: #0a0a0f;
+        }
+        
+        .audio-player {
+            width: 100%;
+            margin-top: 12px;
+        }
+        
+        .voice-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .metrics {
+            display: flex;
+            gap: 15px;
+            margin-top: 10px;
+            font-size: 12px;
+            color: #666;
+        }
+        .metric-value {
+            color: #00d4aa;
+            font-weight: 600;
+        }
+        
+        @media (max-width: 900px) {
+            .container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto;
+            }
+            .panel-left {
+                border-right: none;
+                border-bottom: 1px solid #252535;
+            }
+            .transfer-btn {
+                position: static;
+                transform: none;
+                margin: 10px auto;
+            }
+        }
+        
+        .hidden { display: none !important; }
+        
+        #whisper-container {
+            min-height: 200px;
+        }
+        
+        .loading-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(10, 10, 15, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .loading-overlay.hidden {
+            display: none;
+        }
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid #252535;
+            border-top-color: #00d4aa;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .loading-text {
+            margin-top: 20px;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+    <div class="loading-overlay" id="loading-screen">
+        <div class="spinner"></div>
+        <div class="loading-text">Loading models...</div>
+    </div>
+
+    <header class="header">
+        <div class="logo">
+            <svg class="logo-icon" viewBox="0 0 32 32" fill="none">
+                <circle cx="16" cy="16" r="14" stroke="#00d4aa" stroke-width="2"/>
+                <path d="M10 16h12M16 10v12" stroke="#00d4aa" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            Webtalk
+            <span class="subtitle">Whisper STT + Pocket TTS</span>
+        </div>
+        <div style="color: #666; font-size: 13px;">
+            Local AI Speech Processing
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Whisper STT Panel -->
+        <div class="panel panel-left">
+            <div class="panel-header">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2">
+                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                    <line x1="12" y1="19" x2="12" y2="23"/>
+                    <line x1="8" y1="23" x2="16" y2="23"/>
+                </svg>
+                <h2>Speech to Text (Whisper)</h2>
+            </div>
+
+            <div class="section">
+                <div class="section-title">Audio Input</div>
+                <div class="controls">
+                    <button id="record-btn" onclick="startRecording()">
+                        Start Recording
+                    </button>
+                    <button id="stop-record-btn" class="danger" onclick="stopRecording()" disabled>
+                        Stop
+                    </button>
+                    <input type="file" id="audio-upload" accept="audio/*" hidden onchange="handleAudioUpload(event)">
+                    <button class="secondary" onclick="document.getElementById('audio-upload').click()">
+                        Upload Audio
+                    </button>
+                </div>
+                <div id="stt-status" class="status">Ready</div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">Transcription</div>
+                <div id="transcription-output" class="output-box"></div>
+                <div class="controls">
+                    <button class="secondary" onclick="copyTranscription()">Copy</button>
+                    <button class="secondary" onclick="clearTranscription()">Clear</button>
+                </div>
+            </div>
+
+            <div id="whisper-root" style="display: none;"></div>
+        </div>
+
+        <!-- Pocket TTS Panel -->
+        <div class="panel">
+            <div class="panel-header">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                </svg>
+                <h2>Text to Speech (Pocket TTS)</h2>
+            </div>
+
+            <div class="section">
+                <div class="section-title">Voice Selection</div>
+                <div class="voice-controls">
+                    <select id="voice-select" style="flex: 1;">
+                        <option value="">Loading voices...</option>
+                    </select>
+                    <input type="file" id="voice-upload" accept="audio/*" hidden onchange="handleVoiceUpload(event)">
+                    <button class="secondary" onclick="document.getElementById('voice-upload').click()">
+                        Custom Voice
+                    </button>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">Text Input</div>
+                <textarea id="tts-input" placeholder="Enter text to synthesize..."></textarea>
+                <div class="controls">
+                    <button id="generate-btn" onclick="generateSpeech()" disabled>
+                        Generate Speech
+                    </button>
+                    <button id="stop-tts-btn" class="danger" onclick="stopTTS()" disabled>
+                        Stop
+                    </button>
+                    <button class="secondary" onclick="useTranscription()">
+                        Use Transcription ↑
+                    </button>
+                </div>
+                <div id="tts-status" class="status">Loading models...</div>
+                <div class="metrics" id="tts-metrics" style="display: none;">
+                    <div>RTFx: <span class="metric-value" id="rtfx">--</span></div>
+                    <div>TTFB: <span class="metric-value" id="ttfb">--</span>ms</div>
+                </div>
+            </div>
+
+            <div class="section" id="audio-output-section" style="display: none;">
+                <div class="section-title">Generated Audio</div>
+                <audio id="tts-audio" class="audio-player" controls></audio>
+                <div class="controls">
+                    <button class="secondary" onclick="downloadAudio()">Download WAV</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load original Whisper app -->
+    <script type="module" crossorigin src="/assets/index-ClpvH5Vn.js"></script>
+
+    <!-- TTS Integration -->
+    <script type="module">
+        import { PocketTTSClient } from './tts/tts-client.js';
+
+        // Initialize TTS with error handling
+        try {
+            window.ttsClient = new PocketTTSClient({
+                onStatus: (status, state) => {
+                    const el = document.getElementById('tts-status');
+                    el.textContent = status;
+                    el.className = 'status ' + state;
+                },
+                onVoicesLoaded: (voices, defaultVoice) => {
+                    const select = document.getElementById('voice-select');
+                    select.innerHTML = '';
+                    voices.forEach(voice => {
+                        const option = document.createElement('option');
+                        option.value = voice;
+                        option.textContent = voice.charAt(0).toUpperCase() + voice.slice(1);
+                        if (voice === defaultVoice) option.selected = true;
+                        select.appendChild(option);
+                    });
+                    const custom = document.createElement('option');
+                    custom.value = 'custom';
+                    custom.textContent = 'Custom Voice';
+                    select.appendChild(custom);
+                },
+                onAudioChunk: () => {
+                    document.getElementById('audio-output-section').style.display = 'block';
+                },
+                onMetrics: (metrics) => {
+                    document.getElementById('tts-metrics').style.display = 'flex';
+                    if (metrics.rtfx) document.getElementById('rtfx').textContent = metrics.rtfx.toFixed(2) + 'x';
+                    if (metrics.ttfb) document.getElementById('ttfb').textContent = Math.round(metrics.ttfb);
+                },
+                onComplete: (audioUrl) => {
+                    document.getElementById('tts-audio').src = audioUrl;
+                    document.getElementById('generate-btn').disabled = false;
+                    document.getElementById('stop-tts-btn').disabled = true;
+                },
+                onReady: () => {
+                    document.getElementById('generate-btn').disabled = false;
+                    checkAllLoaded();
+                }
+            });
+        } catch (err) {
+            console.error('TTS initialization failed:', err);
+            document.getElementById('tts-status').textContent = 'TTS unavailable: ' + err.message;
+            document.getElementById('tts-status').className = 'status error';
+            ttsLoaded = true; // Still mark as ready to not block UI
+            checkAllLoaded();
+        }
+        
+        // Global functions for UI
+        window.generateSpeech = () => {
+            const text = document.getElementById('tts-input').value.trim();
+            if (!text) return;
+            
+            document.getElementById('generate-btn').disabled = true;
+            document.getElementById('stop-tts-btn').disabled = false;
+            document.getElementById('tts-metrics').style.display = 'none';
+            
+            const voice = document.getElementById('voice-select').value;
+            window.ttsClient.generate(text, voice);
+        };
+        
+        window.stopTTS = () => {
+            window.ttsClient.stop();
+            document.getElementById('generate-btn').disabled = false;
+            document.getElementById('stop-tts-btn').disabled = true;
+        };
+        
+        window.handleVoiceUpload = (e) => {
+            const file = e.target.files[0];
+            if (file) window.ttsClient.uploadVoice(file);
+        };
+        
+        window.useTranscription = () => {
+            const transcription = document.getElementById('transcription-output').textContent;
+            if (transcription && transcription !== 'Transcribed text will appear here...') {
+                document.getElementById('tts-input').value = transcription;
+            }
+        };
+        
+        window.downloadAudio = () => {
+            window.ttsClient.downloadAudio();
+        };
+        
+        // Check loading status
+        let whisperLoaded = false;
+        let ttsLoaded = false;
+        
+        function checkAllLoaded() {
+            ttsLoaded = true;
+            if (whisperLoaded) {
+                document.getElementById('loading-screen').classList.add('hidden');
+            }
+        }
+        
+        // Listen for Whisper loading
+        window.addEventListener('whisper-loaded', () => {
+            whisperLoaded = true;
+            if (ttsLoaded) {
+                document.getElementById('loading-screen').classList.add('hidden');
+            }
+        });
+        
+        // Timeout fallback
+        setTimeout(() => {
+            document.getElementById('loading-screen').classList.add('hidden');
+        }, 10000);
+    </script>
+    
+    <!-- STT Integration Script -->
+    <script>
+        // These functions will be called by the Whisper app once loaded
+        window.startRecording = () => {
+            document.getElementById('record-btn').disabled = true;
+            document.getElementById('stop-record-btn').disabled = false;
+            const status = document.getElementById('stt-status');
+            status.textContent = 'Recording...';
+            status.className = 'status recording';
+            
+            // Dispatch event for Whisper app
+            window.dispatchEvent(new CustomEvent('whisper-start-record'));
+        };
+        
+        window.stopRecording = () => {
+            document.getElementById('record-btn').disabled = false;
+            document.getElementById('stop-record-btn').disabled = true;
+            const status = document.getElementById('stt-status');
+            status.textContent = 'Processing...';
+            status.className = 'status loading';
+            
+            window.dispatchEvent(new CustomEvent('whisper-stop-record'));
+        };
+        
+        window.handleAudioUpload = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const status = document.getElementById('stt-status');
+            status.textContent = 'Processing audio...';
+            status.className = 'status loading';
+            
+            window.dispatchEvent(new CustomEvent('whisper-upload', { detail: file }));
+        };
+        
+        window.setTranscription = (text) => {
+            const output = document.getElementById('transcription-output');
+            output.textContent = text;
+            output.classList.add('has-content');
+            const status = document.getElementById('stt-status');
+            status.textContent = 'Ready';
+            status.className = 'status ready';
+        };
+        
+        window.copyTranscription = () => {
+            const text = document.getElementById('transcription-output').textContent;
+            navigator.clipboard.writeText(text);
+        };
+        
+        window.clearTranscription = () => {
+            const output = document.getElementById('transcription-output');
+            output.textContent = '';
+            output.classList.remove('has-content');
+        };
+    </script>
+</body>
+</html>

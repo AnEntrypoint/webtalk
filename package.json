@@ -1,0 +1,16 @@
+{
+  "name": "realtime-whisper-webgpu",
+  "version": "1.0.0",
+  "description": "Real-time speech recognition in the browser using Whisper with WebGPU",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "serve": "node server.js"
+  },
+  "keywords": ["whisper", "webgpu", "speech-recognition", "transformers.js"],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
