@@ -81,9 +81,11 @@ export class PocketTTSClient {
     }
     
     getWorkerScript() {
+        const baseUrl = window.location.origin;
         return `
 const SAMPLE_RATE = 24000;
 const MAX_LSD = 10;
+const BASE_URL = '${baseUrl}';
 
 let ort = null;
 let sessions = {};
@@ -98,13 +100,13 @@ let currentLSD = MAX_LSD;
 const ORT_CDN = '${ORT_CDN}';
 
 const MODELS = {
-    mimi_encoder: '/models/tts/mimi_encoder.onnx',
-    text_conditioner: '/models/tts/text_conditioner.onnx',
-    flow_lm_main: '/models/tts/flow_lm_main_int8.onnx',
-    flow_lm_flow: '/models/tts/flow_lm_flow_int8.onnx',
-    mimi_decoder: '/models/tts/mimi_decoder_int8.onnx',
-    tokenizer: '/models/tts/tokenizer.model',
-    voices: '/models/tts/voices.bin'
+    mimi_encoder: BASE_URL + '/models/tts/mimi_encoder.onnx',
+    text_conditioner: BASE_URL + '/models/tts/text_conditioner.onnx',
+    flow_lm_main: BASE_URL + '/models/tts/flow_lm_main_int8.onnx',
+    flow_lm_flow: BASE_URL + '/models/tts/flow_lm_flow_int8.onnx',
+    mimi_decoder: BASE_URL + '/models/tts/mimi_decoder_int8.onnx',
+    tokenizer: BASE_URL + '/models/tts/tokenizer.model',
+    voices: BASE_URL + '/models/tts/voices.bin'
 };
 
 self.onmessage = async (e) => {

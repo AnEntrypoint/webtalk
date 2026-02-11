@@ -1,0 +1,47 @@
+## .prd: Fix TTS Worker Fetch URL Issue
+
+### Root Cause Analysis
+- Worker is inline blob created from string in tts-client.js:38-39
+- Worker tries to fetch `/models/tts/mimi_encoder.onnx` at tts-worker.js:8-14
+- Relative URLs in blob workers don't resolve correctly - fetch fails with "Failed to parse URL"
+- Server.js correctly serves files from `./models/tts/` directory
+- Issue: Worker doesn't have correct URL context to resolve `/models/tts/` paths
+
+### Dependencies Graph
+- Fix URL resolution in worker [blocks] Test worker loads models
+- Test worker loads models [blocks] Verify TTS generates audio
+- Verify TTS generates audio [blocks] Complete
+
+### Independent Items (Wave 1) - COMPLETED
+- [x] Identify all fetch paths in tts-worker.js that use relative URLs
+- [x] Determine correct absolute URL construction (needs window location or injected base URL)
+- [x] Modify tts-client.js getWorkerScript() to inject BASE_URL into worker
+- [x] Update MODELS object in worker script to use absolute URLs
+- [x] Verify absolute URLs are properly formed (http://localhost:8080/models/tts/...)
+- [x] Test that all URLs are valid and parseable
+
+### Sequential Items (Remaining)
+- [ ] Commit the changes
+- [ ] Start server with npm start
+- [ ] Open browser to http://localhost:8080
+- [ ] Trigger TTS initialization and verify no "Failed to parse URL" errors
+- [ ] Verify worker successfully loads model files
+- [ ] Verify audio generation works end-to-end
+
+### Edge Cases & Validation
+- Verify works with different PORT environment variables
+- Verify works with http://localhost:PORT and http://127.0.0.1:PORT
+- Verify works in browser console worker context
+- Verify CORS not blocking model fetches
+- Verify file paths resolve correctly on Windows path separator
+- Verify worker doesn't hang on failed fetches
+- Verify error messages are descriptive
+
+### Acceptance Criteria
+- ✓ Worker successfully fetches mimi_encoder.onnx
+- ✓ All 5 ONNX model files load without fetch errors
+- ✓ Tokenizer.model and voices.bin load successfully
+- ✓ TTS generates audio chunks
+- ✓ No "Failed to parse URL" errors in console
+- ✓ Real audio output in browser
+- ✓ System stable with proper error handling if model load fails
