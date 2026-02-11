@@ -235,19 +235,40 @@ async function generate(text, voiceName) {
     const emptySeq = new ort.Tensor('float32', new Float32Array(0), [1, 0, 32]);
     const voiceT = new ort.Tensor('float32', currentVoiceEmbedding.data, currentVoiceEmbedding.shape);
 
-    // Initialize empty flowState - state tensors will be populated after first run
+    // Initialize flowState with proper state tensor handling
     let flowState = {};
 
-    // First run: don't provide state tensors (they're optional on initial call)
-    let result = await main.run({ sequence: emptySeq, text_embeddings: voiceT });
-
-    // Update flowState from voice conditioning
-    for (const outputName of main.outputNames) {
-        if (outputName.startsWith('out_state_')) {
-            const idx = parseInt(outputName.replace('out_state_', ''));
-            flowState['state_' + idx] = result[outputName];
+    // Build a map of which inputs are state inputs that need to be provided on subsequent runs
+    const stateInputNames = new Set();
+    for (const inputName of main.inputNames) {
+        if (inputName.startsWith('state_')) {
+            stateInputNames.add(inputName);
         }
     }
+
+    console.log('Main model inputNames:', main.inputNames);
+    console.log('Main model outputNames:', main.outputNames);
+    console.log('Detected state input names:', Array.from(stateInputNames));
+
+    // First run: provide initial empty state or let state be optional
+    let inputs = { sequence: emptySeq, text_embeddings: voiceT };
+
+    // For models with state, we may need to initialize state to zeros on first run
+    // But let's try without them first
+    let result = await main.run(inputs);
+    console.log('First run (voice conditioning) result keys:', Object.keys(result));
+
+    // Extract and map state outputs to state inputs for next run
+    // Output names like 'out_state_0' map to inputs 'state_0'
+    for (const outputName of main.outputNames) {
+        if (outputName.startsWith('out_state_')) {
+            const idx = outputName.replace('out_state_', '');
+            const stateName = 'state_' + idx;
+            flowState[stateName] = result[outputName];
+            console.log(`Extracted ${outputName} -> ${stateName}`);
+        }
+    }
+    console.log('flowState after first run:', Object.keys(flowState), 'size:', Object.keys(flowState).length);
 
     // Text conditioning
     const txtInput = new ort.Tensor('int64', BigInt64Array.from(tokens.map(x => BigInt(x))), [1, tokens.length]);
@@ -257,33 +278,59 @@ async function generate(text, voiceName) {
         ? new ort.Tensor('float32', txtEmb.data, [1, txtEmb.dims[0], txtEmb.dims[1]])
         : txtEmb;
 
-    result = await main.run({ sequence: emptySeq, text_embeddings: txtCond, ...flowState });
+    // Second run with state if we extracted it, otherwise without
+    inputs = { sequence: emptySeq, text_embeddings: txtCond };
+    if (Object.keys(flowState).length > 0) {
+        Object.assign(inputs, flowState);
+    }
+
+    console.log('About to call main.run() for text conditioning with inputs:', Object.keys(inputs));
+    result = await main.run(inputs);
+    console.log('Second run (text conditioning) result keys:', Object.keys(result));
 
     // Update flowState from text conditioning
     for (const outputName of main.outputNames) {
         if (outputName.startsWith('out_state_')) {
-            const idx = parseInt(outputName.replace('out_state_', ''));
-            flowState['state_' + idx] = result[outputName];
+            const idx = outputName.replace('out_state_', '');
+            const stateName = 'state_' + idx;
+            flowState[stateName] = result[outputName];
+            console.log(`Updated ${outputName} -> ${stateName}`);
         }
     }
+    console.log('flowState after second run:', Object.keys(flowState), 'size:', Object.keys(flowState).length);
     
     // AR generation
     const latents = [];
     let current = new ort.Tensor('float32', new Float32Array(32).fill(NaN), [1, 1, 32]);
     const emptyText = new ort.Tensor('float32', new Float32Array(0), [1, 0, 1024]);
-    
+
     for (let step = 0; step < 500 && isGenerating; step++) {
-        const arResult = await main.run({ sequence: current, text_embeddings: emptyText, ...flowState });
+        // Prepare inputs for this step
+        let arInputs = { sequence: current, text_embeddings: emptyText };
+        if (Object.keys(flowState).length > 0) {
+            Object.assign(arInputs, flowState);
+        }
+
+        if (step === 0) {
+            console.log('Starting AR loop step 0. Inputs:', Object.keys(arInputs));
+            console.log('Current flowState keys:', Object.keys(flowState));
+        }
+
+        const arResult = await main.run(arInputs);
         const cond = arResult['conditioning'];
         const eos = arResult['eos_logit'].data[0];
-        
+
+        if (step === 0) {
+            console.log('AR step 0 result keys:', Object.keys(arResult));
+        }
+
         // Flow matching
         let x = new Float32Array(32);
         for (let i = 0; i < 32; i++) {
             let u = Math.random(), v = Math.random();
             x[i] = Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v) * 0.84;
         }
-        
+
         const steps = currentLSD;
         const dt = 1.0 / steps;
         for (let j = 0; j < steps; j++) {
@@ -296,15 +343,26 @@ async function generate(text, voiceName) {
             const v = f['flow_dir'].data;
             for (let k = 0; k < 32; k++) x[k] += v[k] * dt;
         }
-        
+
         latents.push(new Float32Array(x));
         current = new ort.Tensor('float32', x, [1, 1, 32]);
 
-        // Update flowState from AR step
+        // Update flowState from AR step - CRITICAL: must update after every run
+        let stateUpdated = false;
         for (const outputName of main.outputNames) {
             if (outputName.startsWith('out_state_')) {
-                const idx = parseInt(outputName.replace('out_state_', ''));
-                flowState['state_' + idx] = arResult[outputName];
+                const idx = outputName.replace('out_state_', '');
+                const stateName = 'state_' + idx;
+                flowState[stateName] = arResult[outputName];
+                stateUpdated = true;
+            }
+        }
+
+        if (step === 0) {
+            if (stateUpdated) {
+                console.log('State updated in AR step 0. flowState now has:', Object.keys(flowState));
+            } else {
+                console.warn('WARNING: No state outputs found in AR step 0. flowState:', Object.keys(flowState));
             }
         }
 
