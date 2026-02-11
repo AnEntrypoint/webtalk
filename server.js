@@ -83,14 +83,18 @@ const server = http.createServer((req, res) => {
 // Ensure models are available before starting server
 async function startServer() {
   console.log('Patching worker for local models...');
-  patchWorker();
-  
+  try {
+    patchWorker();
+  } catch (err) {
+    console.warn('Warning: Worker patching failed, continuing anyway...');
+  }
+
   console.log('Checking for Whisper models...');
   await ensureModel();
-  
+
   console.log('\nChecking for TTS models...');
   await ensureTTSModels();
-  
+
   server.listen(PORT, () => {
     console.log(`\n=================================`);
     console.log(`Server running at http://localhost:${PORT}`);

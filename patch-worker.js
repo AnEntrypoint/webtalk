@@ -30,32 +30,48 @@ self.fetch = function(input, init) {
 function restoreWorker() {
   const workerPath = path.join(WORKER_DIR, WORKER_FILE);
   const backupPath = path.join(WORKER_DIR, WORKER_BACKUP);
-  
+
   if (fs.existsSync(backupPath)) {
-    fs.copyFileSync(backupPath, workerPath);
-    console.log('Worker restored from backup');
+    try {
+      fs.copyFileSync(backupPath, workerPath);
+      console.log('Worker restored from backup');
+    } catch (err) {
+      // If copy fails, try reading and writing directly
+      try {
+        const content = fs.readFileSync(backupPath, 'utf8');
+        fs.writeFileSync(workerPath, content);
+        console.log('Worker restored from backup (using write)');
+      } catch (writeErr) {
+        console.warn('Could not restore worker file:', writeErr.message);
+      }
+    }
   }
 }
 
 function patchWorker() {
   const workerPath = path.join(WORKER_DIR, WORKER_FILE);
   const backupPath = path.join(WORKER_DIR, WORKER_BACKUP);
-  
-  // Restore first to ensure clean state
-  restoreWorker();
-  
-  const content = fs.readFileSync(workerPath, 'utf8');
-  
-  // Check if already patched
-  if (content.includes('FETCH INTERCEPTOR')) {
-    console.log('Worker already patched');
-    return;
+
+  try {
+    // Restore first to ensure clean state
+    restoreWorker();
+
+    const content = fs.readFileSync(workerPath, 'utf8');
+
+    // Check if already patched
+    if (content.includes('FETCH INTERCEPTOR')) {
+      console.log('Worker already patched');
+      return;
+    }
+
+    // Inject at the very beginning
+    const patchedContent = FETCH_PATCH + content;
+    fs.writeFileSync(workerPath, patchedContent);
+    console.log('Worker patched with fetch interceptor');
+  } catch (err) {
+    console.warn('Warning: Could not patch worker file:', err.message);
+    console.warn('Server will continue but fetch requests may not be intercepted for local models');
   }
-  
-  // Inject at the very beginning
-  const patchedContent = FETCH_PATCH + content;
-  fs.writeFileSync(workerPath, patchedContent);
-  console.log('Worker patched with fetch interceptor');
 }
 
 module.exports = { patchWorker, restoreWorker };
