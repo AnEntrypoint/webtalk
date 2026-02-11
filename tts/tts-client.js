@@ -235,17 +235,11 @@ async function generate(text, voiceName) {
     const emptySeq = new ort.Tensor('float32', new Float32Array(0), [1, 0, 32]);
     const voiceT = new ort.Tensor('float32', currentVoiceEmbedding.data, currentVoiceEmbedding.shape);
 
-    // Initialize flowState with zero tensors for all required state inputs
+    // Initialize empty flowState - state tensors will be populated after first run
     let flowState = {};
-    for (const inputName of main.inputNames) {
-        if (inputName.startsWith('state_')) {
-            const idx = parseInt(inputName.replace('state_', ''));
-            // Initialize with zero tensor - proper shape will be set after first output
-            flowState[inputName] = new ort.Tensor('float32', new Float32Array(1024), [1, 1, 1024]);
-        }
-    }
 
-    let result = await main.run({ sequence: emptySeq, text_embeddings: voiceT, ...flowState });
+    // First run: don't provide state tensors (they're optional on initial call)
+    let result = await main.run({ sequence: emptySeq, text_embeddings: voiceT });
 
     // Update flowState from voice conditioning
     for (const outputName of main.outputNames) {

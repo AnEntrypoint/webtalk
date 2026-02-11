@@ -289,17 +289,10 @@ async function runInference(tokenIds) {
     // Voice conditioning
     self.postMessage({ type: 'status', data: { status: 'Processing voice...', state: 'generating' } });
 
-    // Initialize flowState with zero tensors for all required state inputs
+    // Initialize empty flowState - state tensors will be populated after first run
     let flowState = {};
-    for (const inputName of flowLmMain.inputNames) {
-        if (inputName.startsWith('state_')) {
-            const idx = parseInt(inputName.replace('state_', ''));
-            // Initialize with zero tensor - proper shape will be set after first output
-            flowState[inputName] = new ort.Tensor('float32', new Float32Array(1024), [1, 1, 1024]);
-        }
-    }
 
-    const voiceCondInputs = { sequence: emptySeq, text_embeddings: voiceTensor, ...flowState };
+    const voiceCondInputs = { sequence: emptySeq, text_embeddings: voiceTensor };
     let condResult = await flowLmMain.run(voiceCondInputs);
     
     // Update flow state from voice conditioning
