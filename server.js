@@ -110,7 +110,7 @@ async function startServer() {
   console.log('\nChecking for TTS models...');
   await ensureTTSModels();
 
-  server.listen(PORT, () => {
+  server.listen(PORT, '0.0.0.0', () => {
     console.log(`\n=================================`);
     console.log(`Server running at http://localhost:${PORT}`);
     console.log(`\nUnified interface with:`);

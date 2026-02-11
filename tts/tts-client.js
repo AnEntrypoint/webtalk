@@ -400,10 +400,7 @@ async function generate(text, voiceName) {
         : txtEmb;
 
     // Second run with state if we extracted it, otherwise without
-    inputs = { sequence: emptySeq, text_embeddings: txtCond };
-    if (Object.keys(flowState).length > 0) {
-        Object.assign(inputs, flowState);
-    }
+    inputs = { sequence: emptySeq, text_embeddings: txtCond, ...flowState };
 
     console.log('About to call main.run() for text conditioning with inputs:', Object.keys(inputs));
     result = await main.run(inputs);
@@ -453,10 +450,7 @@ async function generate(text, voiceName) {
 
     for (let step = 0; step < 500 && isGenerating; step++) {
         // Prepare inputs for this step
-        let arInputs = { sequence: current, text_embeddings: emptyText };
-        if (Object.keys(flowState).length > 0) {
-            Object.assign(arInputs, flowState);
-        }
+        let arInputs = { sequence: current, text_embeddings: emptyText, ...flowState };
 
         if (step === 0) {
             console.log('Starting AR loop step 0. Inputs:', Object.keys(arInputs));
