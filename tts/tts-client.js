@@ -251,7 +251,7 @@ async function generate(text, voiceName) {
     for (const outputName of main.outputNames) {
         if (outputName.startsWith('out_state_')) {
             const idx = parseInt(outputName.replace('out_state_', ''));
-            flowState[`state_${idx}`] = result[outputName];
+            flowState['state_' + idx] = result[outputName];
         }
     }
 
@@ -269,7 +269,7 @@ async function generate(text, voiceName) {
     for (const outputName of main.outputNames) {
         if (outputName.startsWith('out_state_')) {
             const idx = parseInt(outputName.replace('out_state_', ''));
-            flowState[`state_${idx}`] = result[outputName];
+            flowState['state_' + idx] = result[outputName];
         }
     }
     
@@ -310,7 +310,7 @@ async function generate(text, voiceName) {
         for (const outputName of main.outputNames) {
             if (outputName.startsWith('out_state_')) {
                 const idx = parseInt(outputName.replace('out_state_', ''));
-                flowState[`state_${idx}`] = arResult[outputName];
+                flowState['state_' + idx] = arResult[outputName];
             }
         }
 
