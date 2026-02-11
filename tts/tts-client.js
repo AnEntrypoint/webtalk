@@ -235,9 +235,6 @@ async function generate(text, voiceName) {
     const emptySeq = new ort.Tensor('float32', new Float32Array(0), [1, 0, 32]);
     const voiceT = new ort.Tensor('float32', currentVoiceEmbedding.data, currentVoiceEmbedding.shape);
 
-    // Initialize flowState with proper state tensor handling
-    let flowState = {};
-
     // Build a map of which inputs are state inputs that need to be provided on subsequent runs
     const stateInputNames = new Set();
     for (const inputName of main.inputNames) {
@@ -250,11 +247,22 @@ async function generate(text, voiceName) {
     console.log('Main model outputNames:', main.outputNames);
     console.log('Detected state input names:', Array.from(stateInputNames));
 
-    // First run: provide initial empty state or let state be optional
-    let inputs = { sequence: emptySeq, text_embeddings: voiceT };
+    // CRITICAL FIX: Initialize state with zero tensors BEFORE first run
+    // The model requires state inputs on EVERY run, including the first
+    let flowState = {};
 
-    // For models with state, we may need to initialize state to zeros on first run
-    // But let's try without them first
+    for (const stateName of stateInputNames) {
+        // State shape: typically [1, sequence_len, feature_dim]
+        // Initialize to zeros with shape [1, 1, 1024] - adjust if needed
+        flowState[stateName] = new ort.Tensor('float32', new Float32Array(1 * 1 * 1024).fill(0), [1, 1, 1024]);
+        console.log('Initialized ' + stateName + ' with shape [1, 1, 1024]');
+    }
+    console.log('flowState initialized with', Object.keys(flowState).length, 'state tensors');
+
+    // First run with initial state
+    let inputs = { sequence: emptySeq, text_embeddings: voiceT, ...flowState };
+    console.log('First run (voice conditioning) with inputs:', Object.keys(inputs));
+
     let result = await main.run(inputs);
     console.log('First run (voice conditioning) result keys:', Object.keys(result));
 
