@@ -3,7 +3,13 @@ node_modules/
 *.log
 .DS_Store
 assets/worker-BPxxCWVT-original.js
+assets/worker-patch.js
 worker-patch-header.js
 tts/sentencepiece.js
+publish.bat
+publish.sh
+serve.py
+start-local.py
+tts.html
 
 .glootie-stop-verified
