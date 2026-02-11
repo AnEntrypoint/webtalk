@@ -4,6 +4,7 @@ const path = require('path');
 const { ensureModel, MODELS_DIR } = require('./download-model');
 const { ensureTTSModels, downloadTTSModels, checkModelExists, TTS_MODEL_DIR } = require('./download-tts-model');
 const { patchWorker } = require('./patch-worker');
+const https = require('https');
 
 const PORT = process.env.PORT || 8080;
 const PUBLIC_DIR = __dirname;
@@ -66,7 +67,7 @@ const server = http.createServer((req, res) => {
   // Sanitize URL
   let filePath;
   if (req.url === '/') {
-    filePath = path.join(PUBLIC_DIR, 'unified.html');
+    filePath = path.join(PUBLIC_DIR, 'app.html');
   } else {
     filePath = path.join(PUBLIC_DIR, req.url);
   }
@@ -100,7 +101,46 @@ const server = http.createServer((req, res) => {
   });
 });
 
-// Ensure models are available before starting server
+const ORT_WASM_FILE = path.join(__dirname, 'assets', 'ort-wasm-simd-threaded.jsep.wasm');
+const ORT_WASM_URL = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort-wasm-simd-threaded.jsep.wasm';
+
+function downloadToFile(url, dest) {
+  return new Promise((resolve, reject) => {
+    const file = fs.createWriteStream(dest);
+    https.get(url, (res) => {
+      if (res.statusCode === 301 || res.statusCode === 302 || res.statusCode === 307) {
+        file.close();
+        if (fs.existsSync(dest)) fs.unlinkSync(dest);
+        return downloadToFile(res.headers.location, dest).then(resolve).catch(reject);
+      }
+      if (res.statusCode !== 200) {
+        file.close();
+        if (fs.existsSync(dest)) fs.unlinkSync(dest);
+        return reject(new Error(`HTTP ${res.statusCode}`));
+      }
+      let downloaded = 0;
+      res.on('data', (chunk) => {
+        downloaded += chunk.length;
+        process.stdout.write(`\r  ort-wasm ... ${(downloaded / 1024 / 1024).toFixed(1)}MB`);
+      });
+      res.pipe(file);
+      file.on('finish', () => { file.close(); console.log(' done'); resolve(); });
+    }).on('error', (err) => {
+      if (fs.existsSync(dest)) fs.unlinkSync(dest);
+      reject(err);
+    });
+  });
+}
+
+async function ensureOrtWasm() {
+  if (fs.existsSync(ORT_WASM_FILE)) {
+    console.log('  ort-wasm cached');
+    return;
+  }
+  console.log('  Downloading ort-wasm-simd-threaded.jsep.wasm...');
+  await downloadToFile(ORT_WASM_URL, ORT_WASM_FILE);
+}
+
 async function startServer() {
   console.log('Patching worker for local models...');
   try {
@@ -108,6 +148,9 @@ async function startServer() {
   } catch (err) {
     console.warn('Warning: Worker patching failed, continuing anyway...');
   }
+
+  console.log('Checking for ONNX Runtime WASM...');
+  await ensureOrtWasm();
 
   console.log('Checking for Whisper models...');
   await ensureModel();
