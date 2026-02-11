@@ -7,17 +7,16 @@ const TTS_MODEL_DIR = path.join(MODELS_DIR, 'tts');
 
 // Pocket TTS ONNX model files
 const TTS_FILES = [
-  { name: 'mimi_encoder.onnx', size: '23MB' },
-  { name: 'text_conditioner.onnx', size: '23MB' },
-  { name: 'flow_lm_main_int8.onnx', size: '45MB' },
-  { name: 'flow_lm_flow_int8.onnx', size: '23MB' },
+  { name: 'mimi_encoder.onnx', size: '73MB' },
+  { name: 'text_conditioner.onnx', size: '16MB' },
+  { name: 'flow_lm_main_int8.onnx', size: '76MB' },
+  { name: 'flow_lm_flow_int8.onnx', size: '10MB' },
   { name: 'mimi_decoder_int8.onnx', size: '23MB' },
-  { name: 'tokenizer.model', size: '59KB' },
-  { name: 'voices.bin', size: '1.5MB' }
+  { name: 'tokenizer.model', size: '59KB' }
 ];
 
 const TTS_WEB_FILES = [
-  { name: 'sentencepiece.js', url: 'https://huggingface.co/spaces/KevinAHM/pocket-tts-web/resolve/main/sentencepiece.js', size: '4MB' }
+  { name: 'sentencepiece.js', url: 'https://cdn.jsdelivr.net/npm/@facebookresearch/fasttext@1.0.2/dist/fasttext.js', size: '4MB' }
 ];
 
 function ensureDir(dir) {
@@ -77,12 +76,12 @@ async function checkModelExists() {
 
 async function downloadTTSModels() {
   ensureDir(TTS_MODEL_DIR);
-  
+
   console.log(`Downloading Pocket TTS models...`);
   console.log(`Destination: ${TTS_MODEL_DIR}`);
   console.log('');
-  
-  const baseUrl = 'https://huggingface.co/KevinAHM/pocket-tts-onnx/resolve/main/';
+
+  const baseUrl = 'https://huggingface.co/KevinAHM/pocket-tts-onnx/resolve/main/onnx/';
   
   let downloadedCount = 0;
   
