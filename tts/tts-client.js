@@ -19,18 +19,28 @@ export class PocketTTSClient {
     
     async init() {
         try {
+            // Check if TTS models are available
+            const statusResponse = await fetch('/api/tts-status');
+            const statusData = await statusResponse.json();
+
+            if (!statusData.available) {
+                console.warn('TTS models not available, waiting to download...');
+                this.callbacks.onStatus?.('TTS models not available - Download required. Run: npm run download-tts-models', 'error');
+                return;
+            }
+
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)({
                 sampleRate: SAMPLE_RATE
             });
-            
+
             // Create inline worker
             const workerScript = this.getWorkerScript();
             const blob = new Blob([workerScript], { type: 'application/javascript' });
             this.worker = new Worker(URL.createObjectURL(blob), { type: 'module' });
-            
+
             this.worker.onmessage = (e) => {
                 const { type, data, error } = e.data;
-                
+
                 switch (type) {
                     case 'status':
                         this.callbacks.onStatus?.(data.status, data.state);
@@ -44,7 +54,7 @@ export class PocketTTSClient {
                     case 'audio_chunk':
                         this.audioBuffer.push(new Float32Array(data.audio));
                         this.callbacks.onAudioChunk?.();
-                        
+
                         if (!this.firstChunkTime) {
                             this.firstChunkTime = performance.now();
                             const ttfb = this.firstChunkTime - this.startTime;
@@ -61,12 +71,12 @@ export class PocketTTSClient {
                         break;
                 }
             };
-            
+
             this.worker.postMessage({ type: 'load' });
-            
+
         } catch (err) {
             console.error('TTS init error:', err);
-            this.callbacks.onStatus?.('Failed to initialize TTS', 'error');
+            this.callbacks.onStatus?.('Failed to initialize TTS: ' + err.message, 'error');
         }
     }
     

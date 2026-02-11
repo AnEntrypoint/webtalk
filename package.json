@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "serve": "node server.js"
+    "serve": "node server.js",
+    "download-tts-models": "node download-tts-model.js"
   },
   "keywords": ["whisper", "webgpu", "speech-recognition", "transformers.js"],
   "author": "",
