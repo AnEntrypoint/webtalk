@@ -21,12 +21,18 @@
 - [x] Test that all URLs are valid and parseable
 
 ### Sequential Items (Remaining)
-- [ ] Commit the changes
-- [ ] Start server with npm start
-- [ ] Open browser to http://localhost:8080
-- [ ] Trigger TTS initialization and verify no "Failed to parse URL" errors
-- [ ] Verify worker successfully loads model files
-- [ ] Verify audio generation works end-to-end
+- [x] Commit URL fix (64b3f29)
+- [x] Address voices.bin missing issue with try/catch fallback (194e9d4)
+- [ ] Comprehensive end-to-end testing:
+  - [ ] Start server with npm start
+  - [ ] Open browser to http://localhost:8080
+  - [ ] Verify TTS client initializes (no errors in browser console)
+  - [ ] Verify no "Failed to parse URL from /models/tts/mimi_encoder.onnx" error
+  - [ ] Verify worker loads all ONNX model files successfully
+  - [ ] Verify voices.bin missing is handled gracefully with fallback voice
+  - [ ] Test TTS text-to-speech generation with sample text
+  - [ ] Verify audio chunks are generated
+  - [ ] Verify complete audio output is produced
 
 ### Edge Cases & Validation
 - Verify works with different PORT environment variables
