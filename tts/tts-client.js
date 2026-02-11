@@ -231,7 +231,7 @@ function buildStateShapeMap(session, stateInputNames) {
         'state_3': [2, 1, 1000, 16, 64],  // Rank 5 transformer state
         'state_4': [0], 'state_5': [1],   // state_4: rank 1 size 0; state_5: rank 1 size 1
         'state_6': [2, 1, 1000, 16, 64], // Rank 5 transformer state (every 3rd state is rank 5)
-        'state_7': [1], 'state_8': [1],
+        'state_7': [0], 'state_8': [1],
         'state_9': [2, 1, 1000, 16, 64], // Rank 5 transformer state (pattern: 0, 3, 6, 9, 12, 15)
         'state_10': [1], 'state_11': [1],
         'state_12': [2, 1, 1000, 16, 64], // Rank 5 transformer state
