@@ -16,6 +16,16 @@
   "scripts": {
     "start": "node server.js"
   },
+  "keywords": ["whisper", "webgpu", "stt", "tts", "speech", "audio"],
+  "author": "anEntrypoint",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AnEntrypoint/realtime-whisper-webgpu.git"
+  },
+  "bugs": {
+    "url": "https://github.com/AnEntrypoint/realtime-whisper-webgpu/issues"
+  },
+  "homepage": "https://github.com/AnEntrypoint/realtime-whisper-webgpu",
   "license": "MIT",
   "engines": {
     "node": ">=14.0.0"
