@@ -2,18 +2,16 @@
 const originalFetch = self.fetch;
 self.fetch = function(input, init) {
   let url = typeof input === 'string' ? input : input.url;
-  
-  // Intercept Hugging Face requests and redirect to local
+
   if (url.includes('huggingface.co') && url.includes('/resolve/main/')) {
     const match = url.match(/huggingface\.co\/([^\/]+\/[^\/]+)\/resolve\/main\/(.*)/);
     if (match) {
       const [, modelName, filePath] = match;
       const localUrl = '/models/' + modelName + '/' + filePath;
-      console.log('[Worker] Redirecting to local:', localUrl);
       return originalFetch(localUrl, init);
     }
   }
-  
+
   return originalFetch(input, init);
 };
 // END FETCH INTERCEPTOR

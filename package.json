@@ -9,12 +9,19 @@
     "./middleware": "./middleware.js",
     "./middleware.js": "./middleware.js",
     "./sdk.js": "./sdk.js",
-    "./sdk": "./sdk.js"
+    "./sdk": "./sdk.js",
+    "./stt": "./stt.js",
+    "./stt.js": "./stt.js",
+    "./tts": "./tts.js",
+    "./tts.js": "./tts.js",
+    "./config": "./config.js",
+    "./config.js": "./config.js",
+    "./server": "./server.js",
+    "./server.js": "./server.js"
   },
   "scripts": {
     "start": "node server.js",
-    "serve": "node server.js",
-    "download-models": "node download-model.js && node download-tts-model.js"
+    "serve": "node server.js"
   },
   "keywords": [
     "whisper",
@@ -29,8 +36,13 @@
     "buildless",
     "webjsx"
   ],
-  "author": "",
+  "author": "Webtalk Contributors",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/realtime-whisper-webgpu.git"
+  },
+  "homepage": "https://github.com/yourusername/realtime-whisper-webgpu",
   "engines": {
     "node": ">=14.0.0"
   },

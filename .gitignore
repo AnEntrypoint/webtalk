@@ -7,3 +7,6 @@ assets/ort-wasm-simd-threaded.jsep.wasm
 tts/sentencepiece.js
 .prd
 .glootie-stop-verified
+test-phase8.js
+test-phase8-workspace/
+test-debug.js

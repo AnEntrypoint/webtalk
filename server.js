@@ -1,47 +1,64 @@
 const http = require('http');
+const fs = require('fs');
+const path = require('path');
 const { webtalk } = require('./middleware');
+const { initState, trackRequest, untrackRequest, getCurrentHandlers, setCurrentHandlers, getDebugState } = require('./persistent-state');
+const { startFileWatcher, drain, clearRequireCache } = require('./hot-reload');
+const { createDebugAPI } = require('./debug');
 
-const PORT = process.env.PORT || 8080;
+const state = initState();
+const config = state.config;
+const debugAPI = createDebugAPI(state);
 
-// Minimal express-like app for standalone use (no express dependency)
+process.webtalk = debugAPI;
+
 function createApp() {
-  const routes = { GET: [], USE: [] };
-
   function app(req, res) {
+    trackRequest();
+    const onEnd = () => {
+      untrackRequest();
+      res.removeListener('finish', onEnd);
+      res.removeListener('close', onEnd);
+    };
+    res.on('finish', onEnd);
+    res.on('close', onEnd);
+
     res.json = (data) => {
       res.setHeader('Content-Type', 'application/json');
       res.end(JSON.stringify(data));
     };
     res.status = (code) => { res.statusCode = code; return res; };
     res.sendFile = (filePath) => {
-      const fs = require('fs');
-      const path = require('path');
       const ext = path.extname(filePath).toLowerCase();
       const types = { '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png' };
       res.setHeader('Content-Type', types[ext] || 'application/octet-stream');
-      require('fs').createReadStream(filePath).pipe(res);
+      fs.createReadStream(filePath).pipe(res);
     };
 
     const url = require('url');
     const parsed = url.parse(req.url);
     req.path = parsed.pathname;
 
+    const handlers = getCurrentHandlers();
+    if (!handlers) {
+      res.statusCode = 503;
+      res.end('Server initializing');
+      return;
+    }
+
     let idx = 0;
     const allHandlers = [];
 
-    // Collect USE middleware
-    for (const { prefix, handler } of routes.USE) {
-      allHandlers.push({ prefix, handler });
+    for (const item of handlers.USE) {
+      allHandlers.push({ prefix: item.prefix, handler: item.handler });
     }
 
-    // Collect GET routes
     if (req.method === 'GET') {
-      for (const { path: p, handler } of routes.GET) {
-        allHandlers.push({ exactPath: p, handler });
+      for (const [routePath, handler] of Object.entries(handlers.GET)) {
+        allHandlers.push({ exactPath: routePath, handler });
       }
     }
 
-    // OPTIONS handling
     if (req.method === 'OPTIONS') {
       res.writeHead(200);
       res.end();
@@ -50,9 +67,7 @@ function createApp() {
 
     function next() {
       if (idx >= allHandlers.length) {
-        // Default: serve app.html at root
         if (req.path === '/' || req.path === '') {
-          const path = require('path');
           res.sendFile(path.join(__dirname, 'app.html'));
           return;
         }
@@ -88,13 +103,20 @@ function createApp() {
     next();
   }
 
-  app.get = (p, handler) => routes.GET.push({ path: p, handler });
+  app.get = (p, handler) => {
+    const handlers = getCurrentHandlers() || { GET: {}, USE: [] };
+    handlers.GET[p] = handler;
+    setCurrentHandlers(handlers);
+  };
+
   app.use = (prefixOrHandler, handler) => {
+    const handlers = getCurrentHandlers() || { GET: {}, USE: [] };
     if (typeof prefixOrHandler === 'function') {
-      routes.USE.push({ prefix: null, handler: prefixOrHandler });
+      handlers.USE.push({ prefix: null, handler: prefixOrHandler });
     } else {
-      routes.USE.push({ prefix: prefixOrHandler, handler });
+      handlers.USE.push({ prefix: prefixOrHandler, handler });
     }
+    setCurrentHandlers(handlers);
   };
 
   return app;
@@ -105,30 +127,52 @@ const { init } = webtalk(app);
 
 const server = http.createServer(app);
 
-async function startServer() {
-  await init();
-  server.listen(PORT, '0.0.0.0', () => {
-    console.log(`\n=================================`);
-    console.log(`Webtalk running at http://localhost:${PORT}`);
-    console.log(`  - Whisper STT (Speech-to-Text)`);
-    console.log(`  - Pocket TTS (Text-to-Speech)`);
-    console.log(`  - SDK: http://localhost:${PORT}/webtalk/sdk.js`);
-    console.log(`  - Demo: http://localhost:${PORT}/webtalk/demo`);
-    console.log(`\nPress Ctrl+C to stop`);
-    console.log(`=================================\n`);
-  });
+async function reloadMiddleware() {
+  try {
+    await drain();
+    clearRequireCache(['./middleware.js', './config.js']);
+    delete require.cache[require.resolve('./middleware.js')];
+    delete require.cache[require.resolve('./config.js')];
+
+    const { webtalk: reloadedWebtalk } = require('./middleware.js');
+    const newApp = createApp();
+    const { init: newInit } = reloadedWebtalk(newApp);
+    await newInit();
+    newApp.get('/api/debug', (req, res) => {
+      res.json(getDebugState());
+    });
+  } catch (error) {
+    throw error;
+  }
 }
 
-startServer().catch(err => {
-  console.error('Failed to start server:', err);
-  process.exit(1);
-});
+async function startServer() {
+  try {
+    await init();
+    app.get('/api/debug', (req, res) => {
+      res.json({
+        ...getDebugState(),
+        api: debugAPI.getDebugInfo()
+      });
+    });
+    server.listen(config.port, '0.0.0.0', () => {
+    });
+
+    const stopWatcher = startFileWatcher(
+      ['./middleware.js', './config.js'],
+      reloadMiddleware
+    );
+  } catch (err) {
+    process.exit(1);
+  }
+}
+
+startServer();
 
 process.on('SIGTERM', () => {
   server.close(() => process.exit(0));
 });
 
 process.on('SIGINT', () => {
-  console.log('\nShutting down');
   server.close(() => process.exit(0));
 });

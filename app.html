@@ -5,13 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Webtalk - Whisper STT + Pocket TTS</title>
     <link rel="icon" type="image/png" href="/logo.png">
-    <script>
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/sw.js')
-          .then(reg => console.log('[SW] Registered'))
-          .catch(err => console.log('[SW] Registration failed:', err));
-      }
-    </script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -396,7 +389,9 @@
     </div>
 
     <script type="module">
-        import { STT, TTS } from '/webtalk/sdk.js';
+        import { STT, TTS, debug } from '/webtalk/sdk.js';
+
+        window.webtalkSDK = { STT, TTS, debug };
 
         const sttStatus = document.getElementById('stt-status');
         const ttsStatus = document.getElementById('tts-status');
@@ -421,7 +416,6 @@
         stt.init().then(() => {
             document.getElementById('loading-screen').classList.add('hidden');
         }).catch(err => {
-            console.error('STT init failed:', err);
             sttStatus.textContent = 'STT error: ' + err.message;
             sttStatus.className = 'status error';
             document.getElementById('loading-screen').classList.add('hidden');
@@ -452,7 +446,6 @@
             document.getElementById('transcription-output').textContent = '';
         };
 
-        // === TTS ===
         const tts = new TTS({
             onStatus: (status, state) => {
                 ttsStatus.textContent = status;
@@ -491,7 +484,6 @@
         tts.init().then(() => {
             document.getElementById('generate-btn').disabled = false;
         }).catch(err => {
-            console.error('TTS init failed:', err);
             ttsStatus.textContent = 'TTS error: ' + err.message;
             ttsStatus.className = 'status error';
         });
