@@ -138,4 +138,4 @@ class STT {
   }
 }
 
-module.exports = { STT };
+export { STT };

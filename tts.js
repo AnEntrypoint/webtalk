@@ -1,4 +1,4 @@
-const { SAMPLE_RATE, resample, encodeWAV } = require('./tts-utils');
+import { SAMPLE_RATE, resample, encodeWAV } from './tts-utils.js';
 
 const STATUS = {
   LOADING: 'loading',
@@ -164,4 +164,4 @@ class TTS {
   }
 }
 
-module.exports = { TTS };
+export { TTS };

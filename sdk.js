@@ -1,5 +1,5 @@
-const { STT } = require('./stt.js');
-const { TTS } = require('./tts.js');
+import { STT } from './stt.js';
+import { TTS } from './tts.js';
 
 const debug = {
   getSDKVersion() {
@@ -19,4 +19,4 @@ const debug = {
   }
 };
 
-module.exports = { STT, TTS, debug };
+export { STT, TTS, debug };

@@ -49,4 +49,4 @@ function encodeWAV(audioBuffer) {
   return wavBuf;
 }
 
-module.exports = { SAMPLE_RATE, resample, encodeWAV };
+export { SAMPLE_RATE, resample, encodeWAV };
