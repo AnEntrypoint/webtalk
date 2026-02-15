@@ -200,7 +200,13 @@ async function start(voicePath, options) {
   const extraPaths = options && options.binaryPaths;
   if (state.starting) return false;
   if (state.status === 'running' && state.healthy) return true;
-  if (await adoptRunning()) return true;
+  if (await adoptRunning()) {
+    if (voicePath) {
+      state.voicePath = voicePath;
+      state.voiceCloning = true;
+    }
+    return true;
+  }
   if (!isInstalled(extraPaths)) { state.lastError = 'not installed'; state.status = 'unavailable'; return false; }
   state.starting = true; state.shutdownRequested = false;
   const requestedVoice = voicePath || state.voicePath;
@@ -294,7 +300,7 @@ async function synthesizeViaPocket(text, voiceId, extraDirs) {
   const boundary = '----PocketTTS' + Date.now();
   const parts = [];
   parts.push(`--${boundary}\r\nContent-Disposition: form-data; name="text"\r\n\r\n${text}\r\n`);
-  if (state.voiceCloning && voicePath && voicePath !== state.voicePath) {
+  if (voicePath) {
     const data = fs.readFileSync(voicePath);
     const name = path.basename(voicePath);
     parts.push(`--${boundary}\r\nContent-Disposition: form-data; name="voice_wav"; filename="${name}"\r\nContent-Type: audio/wav\r\n\r\n`);
