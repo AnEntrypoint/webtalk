@@ -3,6 +3,11 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const http = require('http');
+const setup = require('./pocket-tts-setup');
+const edgeFallback = require('./edge-tts-fallback');
+
+const isWin = process.platform === 'win32';
+const VENV_DIR = setup.VENV_DIR;
 
 const AUDIO_EXTENSIONS = ['.wav', '.mp3', '.ogg', '.flac', '.m4a'];
 const FALLBACK_VOICE = 'alba';
@@ -55,10 +60,18 @@ function getVoiceDirs(extraDirs) {
 // --- Binary discovery ---
 
 function findBinary(extraPaths) {
-  const candidates = [
+  const candidates = [];
+  if (isWin) {
+    candidates.push(
+      path.join(VENV_DIR, 'Scripts', 'pocket-tts.exe'),
+      path.join(VENV_DIR, 'bin', 'pocket-tts.exe'),
+      path.join(VENV_DIR, 'bin', 'pocket-tts'),
+    );
+  }
+  candidates.push(
     '/config/workspace/agentgui/data/pocket-venv/bin/pocket-tts',
-    path.join(os.homedir(), '.gmgui', 'pocket-venv', 'bin', 'pocket-tts'),
-  ];
+    path.join(VENV_DIR, 'bin', 'pocket-tts'),
+  );
   if (extraPaths) {
     for (const p of extraPaths) candidates.unshift(p);
   }
@@ -294,6 +307,11 @@ function resolveVoicePath(voiceId, extraDirs) {
 
 // --- Synthesis ---
 
+async function synthesizeAny(text, voiceId, extraDirs) {
+  if (state.healthy) return synthesizeViaPocket(text, voiceId, extraDirs);
+  return edgeFallback.synthesize(text, voiceId);
+}
+
 async function synthesizeViaPocket(text, voiceId, extraDirs) {
   if (!state.healthy) throw new Error('pocket-tts not healthy');
   const voicePath = resolveVoicePath(voiceId, extraDirs);
@@ -339,7 +357,7 @@ async function synthesize(text, voiceId, extraDirs) {
   const inflight = ttsInflight.get(cacheKey);
   if (inflight) return inflight;
   const promise = (async () => {
-    const wav = await synthesizeViaPocket(text, voiceId, extraDirs);
+    const wav = await synthesizeAny(text, voiceId, extraDirs);
     cachePut(cacheKey, wav);
     return wav;
   })();
@@ -358,7 +376,7 @@ async function* synthesizeStream(text, voiceId, extraDirs) {
       yield cached;
       continue;
     }
-    const wav = await synthesizeViaPocket(sentence, voiceId, extraDirs);
+    const wav = await synthesizeAny(sentence, voiceId, extraDirs);
     cachePut(cacheKey, wav);
     yield wav;
   }
@@ -375,6 +393,7 @@ function getStatus() {
     lastError: state.lastError,
     installed: isInstalled(),
     voiceCloning: state.voiceCloning,
+    edgeTtsFallback: true,
   };
 }
 
@@ -397,4 +416,9 @@ module.exports = {
   ttsCacheKey,
   ttsCacheGet,
   splitSentences,
+  ensureInstalled: setup.ensureInstalled,
+  detectPython: setup.detectPython,
+  getPocketTtsPath: setup.getPocketTtsPath,
+  VENV_DIR: setup.VENV_DIR,
+  SETUP_CONFIG: setup.CONFIG,
 };

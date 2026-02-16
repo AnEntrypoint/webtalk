@@ -14,12 +14,21 @@
     "./server": "./server.js",
     "./server-stt": "./server-stt.js",
     "./server-tts": "./server-tts.js",
-    "./server-middleware": "./server-middleware.js"
+    "./server-middleware": "./server-middleware.js",
+    "./pocket-tts-setup": "./pocket-tts-setup.js",
+    "./edge-tts-fallback": "./edge-tts-fallback.js"
   },
   "scripts": {
     "start": "node server.js"
   },
-  "keywords": ["whisper", "webgpu", "stt", "tts", "speech", "audio"],
+  "keywords": [
+    "whisper",
+    "webgpu",
+    "stt",
+    "tts",
+    "speech",
+    "audio"
+  ],
   "author": "anEntrypoint",
   "repository": {
     "type": "git",
@@ -35,10 +44,17 @@
     "onnxruntime-node": ">=1.0.0"
   },
   "peerDependenciesMeta": {
-    "@huggingface/transformers": { "optional": true },
-    "onnxruntime-node": { "optional": true }
+    "@huggingface/transformers": {
+      "optional": true
+    },
+    "onnxruntime-node": {
+      "optional": true
+    }
   },
   "engines": {
     "node": ">=14.0.0"
+  },
+  "dependencies": {
+    "edge-tts-universal": "^1.3.3"
   }
 }
