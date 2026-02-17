@@ -16,8 +16,17 @@ const TTS_WEB_FILES = [
   { name: 'sentencepiece.js', url: 'https://cdn.jsdelivr.net/npm/@facebookresearch/fasttext@1.0.2/dist/fasttext.js', size: '4MB' }
 ];
 
+function getSttttsmodelsTtsDir() {
+  try {
+    const { ttsDir } = require('sttttsmodels');
+    if (fs.existsSync(ttsDir)) return ttsDir;
+  } catch (_) {}
+  return null;
+}
+
 async function checkTTSModelExists(config) {
-  if (!fs.existsSync(config.ttsModelsDir)) return false;
+  const dir = config.ttsModelsDir;
+  if (!fs.existsSync(dir)) return false;
 
   const mainFiles = [
     { name: 'mimi_encoder.onnx', minBytes: 73 * 1024 * 1024 * 0.8 },
@@ -26,7 +35,7 @@ async function checkTTSModelExists(config) {
   ];
 
   for (const file of mainFiles) {
-    const filePath = path.join(config.ttsModelsDir, file.name);
+    const filePath = path.join(dir, file.name);
     if (!fs.existsSync(filePath) || isFileCorrupted(filePath, file.minBytes)) {
       return false;
     }
@@ -68,6 +77,22 @@ async function downloadTTSWebFiles(config) {
   }
 }
 
+function copyFromSttttsmodels(config) {
+  const srcDir = getSttttsmodelsTtsDir();
+  if (!srcDir) return false;
+  ensureDir(config.ttsModelsDir);
+  let copied = 0;
+  for (const file of TTS_FILES) {
+    const src = path.join(srcDir, file.name);
+    const dest = path.join(config.ttsModelsDir, file.name);
+    if (fs.existsSync(dest) && !isFileCorrupted(dest, file.minBytes)) continue;
+    if (!fs.existsSync(src)) return false;
+    fs.copyFileSync(src, dest);
+    copied++;
+  }
+  return true;
+}
+
 async function ensureTTSModels(config) {
   const lockKey = 'tts-models';
 
@@ -79,7 +104,9 @@ async function ensureTTSModels(config) {
     try {
       const exists = await checkTTSModelExists(config);
       if (!exists) {
-        await downloadTTSModels(config);
+        if (!copyFromSttttsmodels(config)) {
+          await downloadTTSModels(config);
+        }
       }
 
       await downloadTTSWebFiles(config);

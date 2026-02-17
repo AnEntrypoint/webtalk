@@ -21,6 +21,12 @@ async function loadTransformers() {
 }
 
 function whisperModelPath(options) {
+  // Check sttttsmodels npm package first
+  try {
+    const { sttDir } = require('sttttsmodels');
+    if (fs.existsSync(sttDir)) return sttDir;
+  } catch (_) {}
+
   // Check webtalk's own models directory
   const webtalkModels = path.join(__dirname, 'models', 'onnx-community', 'whisper-base');
   if (fs.existsSync(webtalkModels)) return webtalkModels;
