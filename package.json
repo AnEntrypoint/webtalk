@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Buildless STT (Whisper WebGPU) + TTS (Pocket TTS ONNX) SDK",
   "main": "middleware.js",
+  "bin": {
+    "webtalk": "./server.js"
+  },
   "type": "commonjs",
   "exports": {
     ".": "./middleware.js",
