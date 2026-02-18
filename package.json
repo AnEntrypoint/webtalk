@@ -16,11 +16,9 @@
     "./config": "./config.js",
     "./server": "./server.js",
     "./server-stt": "./server-stt.js",
-    "./server-tts": "./server-tts.js",
+    "./server-tts": "./server-tts-onnx.js",
     "./server-tts-onnx": "./server-tts-onnx.js",
-    "./server-middleware": "./server-middleware.js",
-    "./pocket-tts-setup": "./pocket-tts-setup.js",
-    "./edge-tts-fallback": "./edge-tts-fallback.js"
+    "./server-middleware": "./server-middleware.js"
   },
   "scripts": {
     "start": "node server.js"
@@ -59,7 +57,6 @@
     "node": ">=14.0.0"
   },
   "dependencies": {
-    "@sctg/sentencepiece-js": "^1.3.3",
-    "edge-tts-universal": "^1.3.3"
+    "@sctg/sentencepiece-js": "^1.3.3"
   }
 }
