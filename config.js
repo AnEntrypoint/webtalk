@@ -19,8 +19,8 @@ function createConfig(options = {}) {
 
     // Model configuration - use local sttttsmodels by default
     defaultWhisperModel: options.defaultWhisperModel || process.env.WHISPER_MODEL || 'onnx-community/whisper-base',
-    whisperBaseUrl: options.whisperBaseUrl || process.env.WHISPER_BASE_URL || '',
-    ttsBaseUrl: options.ttsBaseUrl || process.env.TTS_BASE_URL || '',
+    whisperBaseUrl: options.whisperBaseUrl || process.env.WHISPER_BASE_URL || 'https://gateway.pinata.cloud/ipfs/bafybeidyw252ecy4vs46bbmezrtw325gl2ymdltosmzqgx4edjsc3fbofy/stt/',
+    ttsBaseUrl: options.ttsBaseUrl || process.env.TTS_BASE_URL || 'https://gateway.pinata.cloud/ipfs/bafybeidyw252ecy4vs46bbmezrtw325gl2ymdltosmzqgx4edjsc3fbofy/tts/',
     speakerModelDir: options.speakerModelDir || path.join(sttttsmodelsDir, 'models', 'speaker'),
 
     // Worker configuration

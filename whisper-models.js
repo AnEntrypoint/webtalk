@@ -106,7 +106,11 @@ async function downloadWhisperModel(modelName, config) {
   const modelDir = path.join(config.modelsDir, modelName);
   ensureDir(modelDir);
 
-  const baseUrl = config.whisperBaseUrl ? `${config.whisperBaseUrl}${modelName}/resolve/main/` : null;
+  const baseUrl = config.whisperBaseUrl
+    ? (config.whisperBaseUrl.includes('huggingface.co')
+        ? `${config.whisperBaseUrl}${modelName}/resolve/main/`
+        : `${config.whisperBaseUrl}${modelName}/`)
+    : null;
 
   let downloadedCount = 0;
   let failedCount = 0;
