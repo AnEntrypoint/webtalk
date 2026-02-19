@@ -1,6 +1,6 @@
 {
   "name": "webtalk",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Buildless STT (Whisper WebGPU) + TTS (Pocket TTS ONNX) SDK",
   "main": "middleware.js",
   "bin": {
@@ -18,7 +18,10 @@
     "./server-stt": "./server-stt.js",
     "./server-tts": "./server-tts-onnx.js",
     "./server-tts-onnx": "./server-tts-onnx.js",
-    "./server-middleware": "./server-middleware.js"
+    "./server-middleware": "./server-middleware.js",
+    "./whisper-models": "./whisper-models.js",
+    "./tts-models": "./tts-models.js",
+    "./download-lock": "./download-lock.js"
   },
   "scripts": {
     "start": "node server.js"
