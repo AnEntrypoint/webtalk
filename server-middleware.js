@@ -1,5 +1,5 @@
 const serverSTT = require('./server-stt');
-const serverTTS = require('./server-tts');
+const serverTTS = require('./server-tts-onnx');
 
 function parseBody(req) {
   return new Promise((resolve, reject) => {

@@ -5,6 +5,7 @@ const { ensureModel, downloadFile } = require('./whisper-models');
 const { ensureTTSModels, checkTTSModelExists } = require('./tts-models');
 const { patchWorker } = require('./worker-patch');
 const { serveStatic } = require('./serve-static');
+const { createSpeechHandler } = require('./server-middleware');
 
 function webtalk(app, options = {}) {
   const state = initState({ sdkDir: options.sdkDir || __dirname, ...options });
@@ -16,6 +17,15 @@ function webtalk(app, options = {}) {
     res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     next();
+  });
+
+  const speechHandler = createSpeechHandler({ prefix: '/api' });
+  app.use(async (req, res, next) => {
+    const handled = await speechHandler(req, res).catch((err) => {
+      if (!res.headersSent) { res.statusCode = 500; res.end(err.message); }
+      return true;
+    });
+    if (!handled) next();
   });
 
   app.get('/api/tts-status', async (req, res) => {

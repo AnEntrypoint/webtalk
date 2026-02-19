@@ -10,10 +10,9 @@ const WHISPER_REQUIRED_FILES = [
   'tokenizer_config.json',
   'vocab.json',
   'merges.txt',
-  'model_quantized.onnx',
   'onnx/encoder_model.onnx',
+  'onnx/decoder_model_merged.onnx',
   'onnx/decoder_model_merged_q4.onnx',
-  'onnx/decoder_model_merged.onnx'
 ];
 
 function ensureDir(dir) {
