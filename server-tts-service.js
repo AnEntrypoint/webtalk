@@ -116,4 +116,4 @@ async function* synthesizeStream(text, voiceId, voiceDirs) {
 
 ensureLoaded().catch(() => {});
 
-module.exports = { getStatus, getVoices, synthesize, synthesizeStream };
+module.exports = { getStatus, getVoices, synthesize, synthesizeStream, ensureLoaded };
