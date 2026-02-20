@@ -167,4 +167,4 @@ async function ensureModel(modelName, config) {
   return downloadPromise;
 }
 
-module.exports = { ensureModel, downloadFile, ensureDir, isFileCorrupted };
+module.exports = { ensureModel, checkWhisperModelExists, downloadFile, ensureDir, isFileCorrupted };
