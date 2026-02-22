@@ -155,6 +155,7 @@ async function getSTT(options) {
     env.allowLocalModels = true;
     env.allowRemoteModels = !isLocal;
     env.cacheDir = cacheDir;
+    env.backends.onnx.wasm.proxy = false;
     if (isLocal) env.localModelPath = '';
     sttPipeline = await pipeline('automatic-speech-recognition', modelPath, {
       device: 'cpu',
@@ -165,7 +166,12 @@ async function getSTT(options) {
     return sttPipeline;
   } catch (err) {
     sttPipeline = null;
-    sttLoadError = new Error('STT model load failed: ' + err.message);
+    const message = err.message || String(err);
+    if (message.includes('JSON') && message.includes('position')) {
+      sttLoadError = new Error('STT model load failed: corrupted config file. Try deleting the model cache and redownloading.');
+    } else {
+      sttLoadError = new Error('STT model load failed: ' + message);
+    }
     sttLoadErrorTime = Date.now();
     throw sttLoadError;
   } finally {

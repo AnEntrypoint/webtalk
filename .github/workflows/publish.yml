@@ -25,7 +25,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           npm version patch -m "chore: bump version to %s [skip ci]"
-          git push
+          git fetch origin main
+          git push origin main
 
       - name: Publish to npm
         run: npm publish
