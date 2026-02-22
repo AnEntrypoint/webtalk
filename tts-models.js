@@ -29,7 +29,6 @@ async function checkTTSModelExists(config) {
 
 async function downloadTTSModels(config) {
   ensureDir(config.ttsModelsDir);
-  const cid = (config.ttsBaseUrl || '').match(/\/github\/([^/]+)/)?.[1] || TTS_CID;
 
   for (const file of TTS_FILES) {
     const destPath = path.join(config.ttsModelsDir, file.name);

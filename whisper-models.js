@@ -105,7 +105,6 @@ async function downloadWhisperModel(modelName, config) {
   const modelDir = path.join(config.modelsDir, modelName);
   ensureDir(modelDir);
 
-  const cid = (config.whisperBaseUrl || '').match(/\/github\/([^/]+)/)?.[1] || WHISPER_CID;
   const hfBaseUrl = `https://huggingface.co/onnx-community/whisper-base/resolve/main/`;
 
   for (const file of WHISPER_REQUIRED_FILES) {
