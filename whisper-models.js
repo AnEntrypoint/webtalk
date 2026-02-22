@@ -122,7 +122,7 @@ async function downloadWhisperModel(modelName, config) {
     }
 
     ensureDir(path.dirname(destPath));
-    const ipfsUrl = GATEWAYS[0] + cid + '/stt/' + modelName + '/' + file;
+    const ipfsUrl = GATEWAYS[0] + cid + '/' + file;
     console.log(`[WHISPER] Downloading ${file}...`);
     try {
       await downloadWithProgress(ipfsUrl, destPath);
