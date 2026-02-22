@@ -168,7 +168,14 @@ async function getSTT(options) {
     sttPipeline = null;
     const message = err.message || String(err);
     if (message.includes('JSON') && message.includes('position')) {
-      sttLoadError = new Error('STT model load failed: corrupted config file. Try deleting the model cache and redownloading.');
+      const cacheHint = (options && options.cacheDir) || PERSISTENT_CACHE;
+      const whisperCachePath = path.join(cacheHint, 'onnx-community', 'whisper-base');
+      sttLoadError = new Error(
+        `STT model load failed: Corrupted model files detected. ` +
+        `The config.json file in the model cache appears to be corrupted. ` +
+        `To fix this, delete the model cache directory at: ${whisperCachePath} ` +
+        `Then restart the application to re-download clean model files.`
+      );
     } else {
       sttLoadError = new Error('STT model load failed: ' + message);
     }

@@ -115,7 +115,9 @@ function preloadTTS() {
 }
 
 function splitSentences(text) {
-  return text.match(/[^.!?]+[.!?]*/g)?.map(s => s.trim()).filter(Boolean) || [text];
+  // Split on sentence-ending punctuation followed by whitespace
+  // This preserves filenames like "server.js", "index.html", "app.config.json"
+  return text.match(/(?:[^.!?]|[.!?](?!\s))+[.!?]*(?:\s+|$)/g)?.map(s => s.trim()).filter(Boolean) || [text];
 }
 
 function ttsCacheKey() { return null; }
