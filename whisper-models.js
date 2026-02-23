@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const https = require('https');
 const { createDownloadLock, resolveDownloadLock, rejectDownloadLock, getDownloadPromise, isDownloading } = require('./download-lock');
-const { downloadWithProgress } = require('./download-manager');
+// Removed non-existent download-manager.js reference
 
 const WHISPER_REQUIRED_FILES = [
   'config.json',
@@ -101,9 +101,12 @@ async function checkWhisperModelExists(modelName, config) {
   return encoderValid && decoderValid;
 }
 
-async function downloadWhisperModel(modelName, config) {
+async function downloadWhisperModel(modelName, config, onProgress) {
   const modelDir = path.join(config.modelsDir, modelName);
   ensureDir(modelDir);
+
+  const totalFiles = WHISPER_REQUIRED_FILES.length;
+  let completedFiles = 0;
 
   const hfBaseUrl = `https://huggingface.co/onnx-community/whisper-base/resolve/main/`;
 
@@ -120,6 +123,15 @@ async function downloadWhisperModel(modelName, config) {
 
     ensureDir(path.dirname(destPath));
         console.log(`[WHISPER] Downloading ${file}...`);
+    if (onProgress) {
+      onProgress({
+        type: 'whisper',
+        file,
+        completedFiles,
+        totalFiles,
+        status: 'downloading'
+      });
+    }
     try {
       await downloadWithProgress(baseUrl + destPath);
       console.log(`[WHISPER] Downloaded ${file}`);
@@ -127,7 +139,17 @@ async function downloadWhisperModel(modelName, config) {
       console.warn(`[WHISPER] github failed for ${file}, trying HuggingFace:`, err.message);
       try {
         await downloadFile(hfBaseUrl + file, destPath, 3);
+        completedFiles++;
         console.log(`[WHISPER] Downloaded ${file} from HuggingFace`);
+        if (onProgress) {
+          onProgress({
+            type: 'whisper',
+            file,
+            completedFiles,
+            totalFiles,
+            status: 'completed'
+          });
+        }
       } catch (err2) {
         console.warn(`[WHISPER] Failed to download ${file}:`, err2.message);
         if (fs.existsSync(destPath)) fs.unlinkSync(destPath);
@@ -136,7 +158,7 @@ async function downloadWhisperModel(modelName, config) {
   }
 }
 
-async function ensureModel(modelName, config) {
+async function ensureModel(modelName, config, onProgress) {
   const lockKey = `whisper-${modelName}`;
 
   if (isDownloading(lockKey)) {
@@ -147,7 +169,7 @@ async function ensureModel(modelName, config) {
     try {
       const exists = await checkWhisperModelExists(modelName, config);
       if (!exists) {
-        await downloadWhisperModel(modelName, config);
+        await downloadWhisperModel(modelName, config, onProgress);
       }
       resolveDownloadLock(lockKey, true);
     } catch (err) {
