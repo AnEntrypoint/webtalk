@@ -102,11 +102,8 @@ async function* synthesizeStream(text, voiceId, voiceDirs) {
   const embedding = await getVoiceEmbedding(voiceId, voiceDirs);
   const prepared = ttsOnnx.prepareText(text);
   if (!prepared) return;
-  const sentences = ttsOnnx.splitTextIntoSentences(prepared);
-  for (const sentence of sentences) {
-    if (!sentence) continue;
-    const audioFloat = await ttsOnnx.generateSentence(sentence, embedding);
-    if (audioFloat && audioFloat.length > 0) yield encodeWav(audioFloat, SAMPLE_RATE);
+  for await (const pcm of ttsOnnx.generateSentenceStream(prepared, embedding)) {
+    if (pcm && pcm.length > 0) yield encodeWav(pcm, SAMPLE_RATE);
   }
 }
 

@@ -241,25 +241,11 @@ async function synthesize(text, voiceEmbedding, modelDir) {
   if (!isReady) await loadModels(modelDir);
   const preparedText = prepareText(text);
   if (!preparedText) throw new Error('No text to synthesize');
-  const sentences = splitTextIntoSentences(preparedText);
-  console.log(`[TTS] Processing ${sentences.length} sentence(s)`);
-  const allAudioChunks = [];
-  for (const sentence of sentences) {
-    const audio = await generateSentence(sentence, voiceEmbedding);
-    if (audio && audio.length > 0) allAudioChunks.push(audio);
-  }
-  const totalLength = allAudioChunks.reduce((sum, chunk) => sum + chunk.length, 0);
-  const combinedAudio = new Float32Array(totalLength);
-  let offset = 0;
-  for (const chunk of allAudioChunks) {
-    combinedAudio.set(chunk, offset);
-    offset += chunk.length;
-  }
-  return combinedAudio;
+  return generateSentence(preparedText, voiceEmbedding);
 }
 
-async function generateSentence(text, voiceEmbedding) {
-  const { mimiEncoder, textConditioner, flowLmMain, flowLmFlow, mimiDecoder } = sessions;
+async function* generateSentenceStream(text, voiceEmbedding) {
+  const { textConditioner, flowLmMain, flowLmFlow, mimiDecoder } = sessions;
 
   let mimiState = initState(mimiDecoder, MIMI_DECODER_STATE_SHAPES);
   let flowLmState = initState(flowLmMain, FLOW_LM_STATE_SHAPES);
@@ -280,7 +266,6 @@ async function generateSentence(text, voiceEmbedding) {
   const condResult = await flowLmMain.run({ sequence: emptySeq, text_embeddings: textEmb, ...flowLmState });
   for (const { outName, stateKey } of flowLmStateMap) flowLmState[stateKey] = condResult[outName];
 
-  const latents = [];
   const currentLatent = new ort.Tensor('float32', new Float32Array(32).fill(NaN), [1, 1, 32]);
   const xData = new Float32Array(32);
   const xCopy = new Float32Array(32);
@@ -288,6 +273,7 @@ async function generateSentence(text, voiceEmbedding) {
   const lsdSteps = MAX_LSD;
   const dt = 1.0 / lsdSteps;
   let eosStep = null;
+  let batch = [];
 
   for (let step = 0; step < MAX_FRAMES; step++) {
     const arResult = await flowLmMain.run({ sequence: currentLatent, text_embeddings: emptyTextEmb, ...flowLmState });
@@ -318,42 +304,41 @@ async function generateSentence(text, voiceEmbedding) {
       for (let k = 0; k < 32; k++) xData[k] += v[k] * dt;
     }
 
-    latents.push(new Float32Array(xData));
+    batch.push(new Float32Array(xData));
     currentLatent.data.set(xData);
     for (const { outName, stateKey } of flowLmStateMap) flowLmState[stateKey] = arResult[outName];
 
+    if (batch.length >= CHUNK_TARGET_TOKENS || shouldStop) {
+      const batchLen = batch.length;
+      const latentData = new Float32Array(batchLen * 32);
+      for (let j = 0; j < batchLen; j++) latentData.set(batch[j], j * 32);
+      const latentTensor = new ort.Tensor('float32', latentData, [1, batchLen, 32]);
+      const decResult = await mimiDecoder.run({ latent: latentTensor, ...mimiState });
+      yield new Float32Array(decResult[mimiDecoder.outputNames[0]].data);
+      for (const { outName, stateKey } of mimiStateMap) mimiState[stateKey] = decResult[outName];
+      batch = [];
+    }
+
     if (shouldStop) break;
   }
+}
 
-  const audioChunks = [];
-  const BATCH_SIZE = 50;
-
-  for (let i = 0; i < latents.length; i += BATCH_SIZE) {
-    const batchLen = Math.min(BATCH_SIZE, latents.length - i);
-    const latentData = new Float32Array(batchLen * 32);
-    for (let j = 0; j < batchLen; j++) latentData.set(latents[i + j], j * 32);
-    const latentTensor = new ort.Tensor('float32', latentData, [1, batchLen, 32]);
-    const decResult = await mimiDecoder.run({ latent: latentTensor, ...mimiState });
-    audioChunks.push(new Float32Array(decResult[mimiDecoder.outputNames[0]].data));
-    for (const { outName, stateKey } of mimiStateMap) mimiState[stateKey] = decResult[outName];
-  }
-
-  const totalLength = audioChunks.reduce((sum, chunk) => sum + chunk.length, 0);
-  const combinedAudio = new Float32Array(totalLength);
+async function generateSentence(text, voiceEmbedding) {
+  const chunks = [];
+  for await (const pcm of generateSentenceStream(text, voiceEmbedding)) chunks.push(pcm);
+  const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);
+  const combined = new Float32Array(totalLength);
   let offset = 0;
-  for (const chunk of audioChunks) {
-    combinedAudio.set(chunk, offset);
-    offset += chunk.length;
-  }
-  return combinedAudio;
+  for (const c of chunks) { combined.set(c, offset); offset += c.length; }
+  return combined;
 }
 
 module.exports = {
   loadModels,
   synthesize,
   generateSentence,
+  generateSentenceStream,
   encodeVoiceAudio,
   prepareText,
-  splitTextIntoSentences,
   isReady: () => isReady,
 };
