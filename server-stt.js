@@ -2,6 +2,17 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
+const PLATFORM = os.platform();
+const ARCH = os.arch();
+
+function selectSTTDevice() {
+  const override = process.env.WEBTALK_STT_DEVICE;
+  if (override) return override;
+  if (PLATFORM === 'darwin' && ARCH === 'arm64') return 'mps';
+  if (PLATFORM === 'linux' && (ARCH === 'arm64' || ARCH === 'arm')) return 'cpu';
+  return 'cpu';
+}
+
 const { decodeWavToFloat32, resampleTo16k, encodeWav, decodeAudioFile, SAMPLE_RATE } = require('./audio-codec');
 const MIN_WAV_SIZE = 1000;
 const STT_RETRY_MS = 30000;
@@ -99,11 +110,28 @@ async function getSTT(options) {
     env.cacheDir = cacheDir;
     env.backends.onnx.wasm.proxy = false;
     if (isLocal) env.localModelPath = '';
-    sttPipeline = await pipeline('automatic-speech-recognition', modelPath, {
-      device: 'cpu',
-      cache_dir: cacheDir,
-      local_files_only: isLocal,
-    });
+    const device = selectSTTDevice();
+    let loadDevice = device;
+    try {
+      sttPipeline = await pipeline('automatic-speech-recognition', modelPath, {
+        device: loadDevice,
+        cache_dir: cacheDir,
+        local_files_only: isLocal,
+      });
+    } catch (deviceErr) {
+      if (loadDevice !== 'cpu') {
+        console.warn('[STT] Device', loadDevice, 'unavailable, falling back to cpu:', deviceErr.message);
+        loadDevice = 'cpu';
+        sttPipeline = await pipeline('automatic-speech-recognition', modelPath, {
+          device: 'cpu',
+          cache_dir: cacheDir,
+          local_files_only: isLocal,
+        });
+      } else {
+        throw deviceErr;
+      }
+    }
+    console.log('[STT] Loaded with device:', loadDevice);
     sttLoadError = null;
     return sttPipeline;
   } catch (err) {

@@ -1,8 +1,18 @@
-// Server-side ONNX TTS using onnxruntime-node
-// Mirrors the browser worker inference logic
-
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
+
+function buildTTSProviders() {
+  const override = process.env.WEBTALK_TTS_PROVIDERS;
+  if (override) return override.split(',').map(s => s.trim());
+  const p = os.platform();
+  const a = os.arch();
+  const list = ['cuda'];
+  if (p === 'darwin' && a === 'arm64') list.push('coreml');
+  if (p === 'win32') list.push('dml');
+  list.push('cpu');
+  return list;
+}
 
 let ort = null;
 
@@ -128,11 +138,12 @@ async function loadModels(modelDir) {
   }
 
   const sessionOptions = {
-    executionProviders: ['cpu'],
+    executionProviders: buildTTSProviders(),
     graphOptimizationLevel: 'all',
     enableCpuMemArena: true,
     enableMemPattern: true,
   };
+  console.log('[TTS] Using execution providers:', sessionOptions.executionProviders);
 
   console.log('[TTS] Loading ONNX models...');
 

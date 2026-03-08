@@ -24,6 +24,8 @@ function createConfig(options = {}) {
     onnxWasmUrl: options.onnxWasmUrl || process.env.ONNX_WASM_URL || '',
     mountPath: options.mountPath || process.env.MOUNT_PATH || '/webtalk',
     apiBasePath: options.apiBasePath || process.env.API_BASE_PATH || '',
+    sttDevice: options.sttDevice || process.env.WEBTALK_STT_DEVICE || '',
+    ttsProviders: options.ttsProviders || process.env.WEBTALK_TTS_PROVIDERS || '',
   };
 }
 
