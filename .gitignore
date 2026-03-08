@@ -10,3 +10,4 @@ tts/sentencepiece.js
 
 .code-search/
 .gm-stop-verified
+*.wav
