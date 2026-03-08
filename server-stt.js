@@ -22,6 +22,7 @@ let sttPipeline = null;
 let sttLoading = false;
 let sttLoadError = null;
 let sttLoadErrorTime = 0;
+const sttWaiters = [];
 
 const PERSISTENT_CACHE = path.join(os.homedir(), '.gmgui', 'models');
 
@@ -94,10 +95,7 @@ async function getSTT(options) {
   if (sttPipeline) return sttPipeline;
   if (sttLoadError && (Date.now() - sttLoadErrorTime < STT_RETRY_MS)) throw sttLoadError;
   if (sttLoading) {
-    while (sttLoading) await new Promise(r => setTimeout(r, 100));
-    if (sttLoadError && (Date.now() - sttLoadErrorTime < STT_RETRY_MS)) throw sttLoadError;
-    if (!sttPipeline) throw new Error('STT pipeline failed to load');
-    return sttPipeline;
+    return new Promise((resolve, reject) => sttWaiters.push({ resolve, reject }));
   }
   sttLoading = true;
   try {
@@ -133,6 +131,8 @@ async function getSTT(options) {
     }
     console.log('[STT] Loaded with device:', loadDevice);
     sttLoadError = null;
+    sttWaiters.forEach(w => w.resolve(sttPipeline));
+    sttWaiters.length = 0;
     return sttPipeline;
   } catch (err) {
     sttPipeline = null;
@@ -147,6 +147,8 @@ async function getSTT(options) {
       sttLoadError = new Error('STT model load failed: ' + message);
     }
     sttLoadErrorTime = Date.now();
+    sttWaiters.forEach(w => w.reject(sttLoadError));
+    sttWaiters.length = 0;
     throw sttLoadError;
   } finally {
     sttLoading = false;

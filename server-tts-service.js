@@ -14,6 +14,7 @@ let modelsDir = null;
 let loadError = null;
 let loadPromise = null;
 const voiceCache = {};
+const voiceInFlight = {};
 
 function getTTSModelsDir() {
   if (!modelsDir) modelsDir = TTS_MODELS_DIR;
@@ -66,22 +67,26 @@ async function getVoiceEmbedding(voiceId, voiceDirs) {
   const audioPath = voices[voiceId] || voices[stripped] || Object.values(voices)[0];
   if (!audioPath) throw new Error('No voice files found. Place an audio file in ' + DEFAULT_VOICES_DIR);
   if (voiceCache[audioPath]) return voiceCache[audioPath];
+  if (voiceInFlight[audioPath]) return voiceInFlight[audioPath];
 
-  const audio16k = await decodeAudioFile(audioPath);
-
-  const ratio = 16000 / SAMPLE_RATE;
-  const len = Math.round(audio16k.length / ratio);
-  const resampled = new Float32Array(len);
-  for (let i = 0; i < len; i++) {
-    const idx = i * ratio;
-    const lo = Math.floor(idx);
-    const hi = Math.min(lo + 1, audio16k.length - 1);
-    resampled[i] = audio16k[lo] * (1 - (idx - lo)) + audio16k[hi] * (idx - lo);
-  }
-
-  const embedding = await ttsOnnx.encodeVoiceAudio(resampled);
-  voiceCache[audioPath] = embedding;
-  return embedding;
+  const p = (async () => {
+    const audio16k = await decodeAudioFile(audioPath);
+    const ratio = 16000 / SAMPLE_RATE;
+    const len = Math.round(audio16k.length / ratio);
+    const resampled = new Float32Array(len);
+    for (let i = 0; i < len; i++) {
+      const idx = i * ratio;
+      const lo = Math.floor(idx);
+      const hi = Math.min(lo + 1, audio16k.length - 1);
+      resampled[i] = audio16k[lo] * (1 - (idx - lo)) + audio16k[hi] * (idx - lo);
+    }
+    const embedding = await ttsOnnx.encodeVoiceAudio(resampled);
+    voiceCache[audioPath] = embedding;
+    delete voiceInFlight[audioPath];
+    return embedding;
+  })();
+  voiceInFlight[audioPath] = p;
+  return p;
 }
 
 async function synthesize(text, voiceId, voiceDirs) {
