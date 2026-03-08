@@ -100,13 +100,13 @@ async function synthesize(text, voiceId, voiceDirs) {
 async function* synthesizeStream(text, voiceId, voiceDirs) {
   await ensureLoaded();
   const embedding = await getVoiceEmbedding(voiceId, voiceDirs);
-  const dir = getTTSModelsDir();
-  const sentences = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [text];
+  const prepared = ttsOnnx.prepareText(text);
+  if (!prepared) return;
+  const sentences = ttsOnnx.splitTextIntoSentences(prepared);
   for (const sentence of sentences) {
-    const s = sentence.trim();
-    if (!s) continue;
-    const audioFloat = await ttsOnnx.synthesize(s, embedding, dir);
-    yield encodeWav(audioFloat, SAMPLE_RATE);
+    if (!sentence) continue;
+    const audioFloat = await ttsOnnx.generateSentence(sentence, embedding);
+    if (audioFloat && audioFloat.length > 0) yield encodeWav(audioFloat, SAMPLE_RATE);
   }
 }
 

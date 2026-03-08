@@ -353,5 +353,7 @@ module.exports = {
   synthesize,
   generateSentence,
   encodeVoiceAudio,
+  prepareText,
+  splitTextIntoSentences,
   isReady: () => isReady,
 };
