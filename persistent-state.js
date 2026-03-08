@@ -1,16 +1,42 @@
 const { createConfig } = require('./config');
 
+function createSemaphore(concurrency, maxQueue) {
+  const sem = { active: 0, queue: [] };
+  return {
+    acquire() {
+      return new Promise((resolve, reject) => {
+        if (sem.active < concurrency) { sem.active++; resolve(); }
+        else if (sem.queue.length < maxQueue) sem.queue.push({ resolve, reject });
+        else reject(Object.assign(new Error('overloaded'), { overloaded: true }));
+      });
+    },
+    release() {
+      if (sem.queue.length > 0) sem.queue.shift().resolve();
+      else sem.active--;
+    },
+    get active() { return sem.active; },
+    get queued() { return sem.queue.length; },
+  };
+}
+
 const state = {
   config: null,
   handlers: { current: null },
   requests: { inFlight: 0, draining: false },
   reload: { count: 0, lastTime: 0, lastError: null },
-  debug: { reloadEvents: [], drainEvents: [] }
+  debug: { reloadEvents: [], drainEvents: [] },
+  semaphores: { tts: null, stt: null },
 };
 
 function initState(options = {}) {
   if (!state.config) {
     state.config = createConfig(options);
+  }
+  if (!state.semaphores.tts) {
+    state.semaphores.tts = createSemaphore(state.config.ttsConcurrency, state.config.ttsQueueMax);
+  }
+  if (!state.semaphores.stt) {
+    state.semaphores.stt = createSemaphore(state.config.sttConcurrency, state.config.sttQueueMax);
   }
   return state;
 }
@@ -55,8 +81,11 @@ function getDebugState() {
   };
 }
 
+function getSemaphores() { return state.semaphores; }
+
 module.exports = {
   initState, trackRequest, untrackRequest, getInFlightCount,
   setCurrentHandlers, getCurrentHandlers,
-  setDraining, recordReload, recordDrain, getDebugState
+  setDraining, recordReload, recordDrain, getDebugState,
+  getSemaphores, createSemaphore,
 };

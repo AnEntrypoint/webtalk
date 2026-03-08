@@ -1,5 +1,6 @@
 const serverSTT = require('./server-stt');
 const serverTTS = require('./server-tts-service');
+const persistentState = require('./persistent-state');
 
 function parseBody(req) {
   return new Promise((resolve, reject) => {
@@ -59,7 +60,18 @@ function createSpeechHandler(options) {
           sendJSON(res, 400, { error: 'No audio data' });
           return true;
         }
-        const text = await serverSTT.transcribe(audioBuffer, sttOptions);
+        const sems = persistentState.getSemaphores();
+        const sttSem = sems && sems.stt;
+        if (sttSem) {
+          try { await sttSem.acquire(); }
+          catch (e) {
+            if (e.overloaded) { sendJSON(res, 503, { error: 'overloaded', retryAfter: 5 }); return true; }
+            throw e;
+          }
+        }
+        let text;
+        try { text = await serverSTT.transcribe(audioBuffer, sttOptions); }
+        finally { if (sttSem) sttSem.release(); }
         sendJSON(res, 200, { text: (text || '').trim() });
       } catch (err) {
         if (!res.headersSent) sendJSON(res, 500, { error: err.message || 'STT failed' });
@@ -86,7 +98,18 @@ function createSpeechHandler(options) {
           sendJSON(res, 503, { error: status.lastError || 'TTS loading', retryable: !status.lastError });
           return true;
         }
-        const wavBuffer = await serverTTS.synthesize(text, voiceId, voiceDirs);
+        const sems = persistentState.getSemaphores();
+        const ttsSem = sems && sems.tts;
+        if (ttsSem) {
+          try { await ttsSem.acquire(); }
+          catch (e) {
+            if (e.overloaded) { sendJSON(res, 503, { error: 'overloaded', retryAfter: 5 }); return true; }
+            throw e;
+          }
+        }
+        let wavBuffer;
+        try { wavBuffer = await serverTTS.synthesize(text, voiceId, voiceDirs); }
+        finally { if (ttsSem) ttsSem.release(); }
         res.writeHead(200, { 'Content-Type': 'audio/wav', 'Content-Length': wavBuffer.length });
         res.end(wavBuffer);
       } catch (err) {
@@ -111,17 +134,30 @@ function createSpeechHandler(options) {
           sendJSON(res, 503, { error: status.lastError || 'TTS loading', retryable: !status.lastError });
           return true;
         }
+        const sems = persistentState.getSemaphores();
+        const ttsSem = sems && sems.tts;
+        if (ttsSem) {
+          try { await ttsSem.acquire(); }
+          catch (e) {
+            if (e.overloaded) { sendJSON(res, 503, { error: 'overloaded', retryAfter: 5 }); return true; }
+            throw e;
+          }
+        }
         res.writeHead(200, {
           'Content-Type': 'application/octet-stream',
           'Transfer-Encoding': 'chunked',
           'X-Content-Type': 'audio/wav-stream',
           'Cache-Control': 'no-cache'
         });
-        for await (const wavChunk of serverTTS.synthesizeStream(text, voiceId, voiceDirs)) {
-          const lenBuf = Buffer.alloc(4);
-          lenBuf.writeUInt32BE(wavChunk.length, 0);
-          res.write(lenBuf);
-          res.write(wavChunk);
+        try {
+          for await (const wavChunk of serverTTS.synthesizeStream(text, voiceId, voiceDirs)) {
+            const lenBuf = Buffer.alloc(4);
+            lenBuf.writeUInt32BE(wavChunk.length, 0);
+            res.write(lenBuf);
+            res.write(wavChunk);
+          }
+        } finally {
+          if (ttsSem) ttsSem.release();
         }
         res.end();
       } catch (err) {

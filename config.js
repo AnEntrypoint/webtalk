@@ -26,6 +26,10 @@ function createConfig(options = {}) {
     apiBasePath: options.apiBasePath || process.env.API_BASE_PATH || '',
     sttDevice: options.sttDevice || process.env.WEBTALK_STT_DEVICE || '',
     ttsProviders: options.ttsProviders || process.env.WEBTALK_TTS_PROVIDERS || '',
+    ttsConcurrency: options.ttsConcurrency || parseInt(process.env.TTS_CONCURRENCY, 10) || 2,
+    ttsQueueMax: options.ttsQueueMax || parseInt(process.env.TTS_QUEUE_MAX, 10) || 10,
+    sttConcurrency: options.sttConcurrency || parseInt(process.env.STT_CONCURRENCY, 10) || 1,
+    sttQueueMax: options.sttQueueMax || parseInt(process.env.STT_QUEUE_MAX, 10) || 5,
   };
 }
 
