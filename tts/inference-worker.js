@@ -450,6 +450,7 @@ async function loadModels() {
         console.warn('  Cross-Origin-Opener-Policy: same-origin');
         console.warn('  Cross-Origin-Embedder-Policy: require-corp');
         ort.env.wasm.numThreads = 1;
+        ort.env.wasm.proxy = false;
     } else {
         const threads = Math.min(navigator.hardwareConcurrency || 4, 8);
         ort.env.wasm.numThreads = threads;
