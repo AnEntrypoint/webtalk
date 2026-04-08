@@ -1,6 +1,6 @@
 {
   "name": "webtalk",
-  "version": "1.0.43",
+  "version": "1.0.44",
   "description": "Buildless STT (Whisper WebGPU) + TTS (Pocket TTS ONNX) SDK",
   "main": "middleware.js",
   "bin": {
